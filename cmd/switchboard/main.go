@@ -13,12 +13,14 @@ const (
 	keyDefaultNameServers = "DefaultNameServers"
 	keyProxy              = "proxy"
 	keyBlacklists         = "blacklist"
+	keyBindAddr           = "bind"
 )
 
 var (
 	defaults = map[string]interface{}{
 		// Use Google public DNS as default if none is provided
 		keyDefaultNameServers: []string{"8.8.8.8", "8.8.4.4"},
+		keyBindAddr:           ":53",
 	}
 )
 
@@ -56,7 +58,7 @@ func main() {
 		}
 	}
 
-	s := switchboard.New(":12345")
+	s := switchboard.New(viper.GetString(keyBindAddr))
 	// Prepare and add handlers
 	defaultHandler := switchboard.NewDefaultHandler(viper.GetStringSlice(keyDefaultNameServers))
 	s.AddHandler(defaultHandler)
