@@ -67,12 +67,14 @@ func (h ProxyHandler) Path() string {
 }
 
 type SinkholeHandler struct {
-	path string
+	path     string
+	category string
 }
 
-func NewSinkholeHandler(path string) SinkholeHandler {
+func NewSinkholeHandler(path string, category string) SinkholeHandler {
 	return SinkholeHandler{
-		path: path,
+		path:     path,
+		category: category,
 	}
 }
 

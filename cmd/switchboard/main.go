@@ -88,7 +88,7 @@ func main() {
 		}
 
 		for _, sinkhole := range bl.Domains() {
-			hSink := switchboard.NewSinkholeHandler(sinkhole)
+			hSink := switchboard.NewSinkholeHandler(sinkhole, bl.Category())
 			s.AddHandler(hSink)
 		}
 	}
