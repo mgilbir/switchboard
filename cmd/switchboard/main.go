@@ -12,6 +12,7 @@ import (
 const (
 	keyDefaultNameServers = "DefaultNameServers"
 	keyProxy              = "proxy"
+	keyBlacklists         = "blacklists"
 )
 
 var (
@@ -52,10 +53,10 @@ func main() {
 
 	s := switchboard.New(":12345")
 	// Prepare and add handlers
-	fmt.Println(viper.GetStringSlice(keyDefaultNameServers))
 	defaultHandler := switchboard.NewDefaultHandler(viper.GetStringSlice(keyDefaultNameServers))
 	s.AddHandler(defaultHandler)
 
+	// Proxy handlers
 	var proxies []proxyConfig
 	err = viper.UnmarshalKey(keyProxy, &proxies)
 	if err != nil {
@@ -66,11 +67,18 @@ func main() {
 		s.AddHandler(hProxy)
 	}
 
-	hDummy := switchboard.NewDummyHandler("google.com")
-	s.AddHandler(hDummy)
+	// Sinkhole handlers
+	for _, src := range viper.GetStringSlice(keyBlacklists) {
+		bl, err := switchboard.RetrieveBlacklist(src)
+		if err != nil {
+			log.Printf("Error retrieving blacklist: %s. %s. Proceeding without it\n", src, err)
+		}
 
-	hSink := switchboard.NewSinkholeHandler("yahoo.com")
-	s.AddHandler(hSink)
+		for _, sinkhole := range bl.Domains() {
+			hSink := switchboard.NewSinkholeHandler(sinkhole)
+			s.AddHandler(hSink)
+		}
+	}
 
 	if err := s.ListenAndServe(); err != nil {
 		log.Fatal(err)
