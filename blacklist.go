@@ -9,17 +9,19 @@ import (
 )
 
 var (
-	EmptyBlacklist = NewBlacklist()
+	EmptyBlacklist = NewBlacklist("")
 )
 
 type Blacklist struct {
-	domains []string
-	lock    sync.RWMutex
+	domains  []string
+	category string
+	lock     sync.RWMutex
 }
 
-func NewBlacklist() Blacklist {
+func NewBlacklist(category string) Blacklist {
 	return Blacklist{
-		domains: make([]string, 0),
+		domains:  make([]string, 0),
+		category: category,
 	}
 }
 
@@ -40,15 +42,19 @@ func (b *Blacklist) Domains() []string {
 	return d
 }
 
-func RetrieveBlacklist(src string) (Blacklist, error) {
+func (b Blacklist) Category() string {
+	return b.category
+}
+
+func RetrieveBlacklist(src string, category string) (Blacklist, error) {
 	if strings.HasPrefix(src, "http") {
-		return RetrieveBlacklistURL(src)
+		return RetrieveBlacklistURL(src, category)
 	}
 
 	return EmptyBlacklist, fmt.Errorf("Unknown blacklist source type for: %s\n", src)
 }
 
-func RetrieveBlacklistURL(url string) (Blacklist, error) {
+func RetrieveBlacklistURL(url string, category string) (Blacklist, error) {
 	r, err := http.Get(url)
 	if err != nil {
 		return EmptyBlacklist, err
@@ -56,7 +62,7 @@ func RetrieveBlacklistURL(url string) (Blacklist, error) {
 
 	defer r.Body.Close()
 
-	bl := NewBlacklist()
+	bl := NewBlacklist(category)
 
 	scanner := bufio.NewScanner(r.Body)
 	for scanner.Scan() {

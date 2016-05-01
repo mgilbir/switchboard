@@ -12,7 +12,7 @@ import (
 const (
 	keyDefaultNameServers = "DefaultNameServers"
 	keyProxy              = "proxy"
-	keyBlacklists         = "blacklists"
+	keyBlacklists         = "blacklist"
 )
 
 var (
@@ -25,6 +25,11 @@ var (
 type proxyConfig struct {
 	Domain      string
 	NameServers []string
+}
+
+type blacklistConfig struct {
+	Src      string
+	Category string
 }
 
 func main() {
@@ -68,10 +73,16 @@ func main() {
 	}
 
 	// Sinkhole handlers
-	for _, src := range viper.GetStringSlice(keyBlacklists) {
-		bl, err := switchboard.RetrieveBlacklist(src)
+	var blacklists []blacklistConfig
+	err = viper.UnmarshalKey(keyBlacklists, &blacklists)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, blacklist := range blacklists {
+		bl, err := switchboard.RetrieveBlacklist(blacklist.Src, blacklist.Category)
 		if err != nil {
-			log.Printf("Error retrieving blacklist: %s. %s. Proceeding without it\n", src, err)
+			log.Printf("Error retrieving blacklist: %s. %s. Proceeding without it\n", blacklist.Src, err)
 		}
 
 		for _, sinkhole := range bl.Domains() {

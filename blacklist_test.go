@@ -11,7 +11,7 @@ import (
 
 func TestRetrieveURL(t *testing.T) {
 	server := mockBlacklistURLServer(t)
-	bl, err := RetrieveBlacklistURL(server.URL + "/5")
+	bl, err := RetrieveBlacklistURL(server.URL+"/5", "TEST")
 	if err != nil {
 		t.Fatal(err)
 	}
