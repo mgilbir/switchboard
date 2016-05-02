@@ -14,6 +14,7 @@ const (
 	keyProxy              = "proxy"
 	keyBlacklists         = "blacklist"
 	keyBindAddr           = "bind"
+	keyMapping            = "mapping"
 )
 
 var (
@@ -91,6 +92,12 @@ func main() {
 			hSink := switchboard.NewSinkholeHandler(sinkhole, bl.Category())
 			s.AddHandler(hSink)
 		}
+	}
+
+	// Mapping handlers
+	for domain, ip := range viper.GetStringMapString(keyMapping) {
+		hMap := switchboard.NewMappingHandler(domain, ip)
+		s.AddHandler(hMap)
 	}
 
 	if err := s.ListenAndServe(); err != nil {

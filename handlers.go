@@ -2,6 +2,7 @@ package switchboard
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -83,5 +84,46 @@ func (h SinkholeHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 }
 
 func (h SinkholeHandler) Path() string {
+	return h.path
+}
+
+type MappingHandler struct {
+	path string
+	ip   net.IP
+}
+
+func NewMappingHandler(path string, ip string) MappingHandler {
+	ip = strings.TrimSpace(ip)
+
+	return MappingHandler{
+		path: path,
+		ip:   net.ParseIP(ip),
+	}
+}
+
+func (h MappingHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+	//TODO: Do we want to do something different based on record type?
+	m := &dns.Msg{}
+	m.RecursionAvailable = true
+	m.SetReply(r)
+
+	header := dns.RR_Header{
+		Name:   r.Question[0].Name,
+		Rrtype: dns.TypeA,
+		Class:  dns.ClassINET,
+		Ttl:    5,
+	}
+
+	a := &dns.A{
+		Hdr: header,
+		A:   h.ip,
+	}
+
+	m.Answer = append(m.Answer, a)
+
+	w.WriteMsg(m)
+}
+
+func (h MappingHandler) Path() string {
 	return h.path
 }
