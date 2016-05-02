@@ -59,9 +59,12 @@ func main() {
 		}
 	}
 
+	analytics := switchboard.NewAnalytics()
+
 	s := switchboard.New(viper.GetString(keyBindAddr))
 	// Prepare and add handlers
 	defaultHandler := switchboard.NewDefaultHandler(viper.GetStringSlice(keyDefaultNameServers))
+	defaultHandler = defaultHandler.WithAnalytics(analytics)
 	s.AddHandler(defaultHandler)
 
 	// Proxy handlers
@@ -71,7 +74,7 @@ func main() {
 		log.Fatal(err)
 	}
 	for _, p := range proxies {
-		hProxy := switchboard.NewProxyHandler(p.Domain, p.NameServers)
+		hProxy := switchboard.NewProxyHandler(p.Domain, p.NameServers).WithAnalytics(analytics)
 		s.AddHandler(hProxy)
 	}
 
@@ -89,14 +92,14 @@ func main() {
 		}
 
 		for _, sinkhole := range bl.Domains() {
-			hSink := switchboard.NewSinkholeHandler(sinkhole, bl.Category())
+			hSink := switchboard.NewSinkholeHandler(sinkhole, bl.Category()).WithAnalytics(analytics)
 			s.AddHandler(hSink)
 		}
 	}
 
 	// Mapping handlers
 	for domain, ip := range viper.GetStringMapString(keyMapping) {
-		hMap := switchboard.NewMappingHandler(domain, ip)
+		hMap := switchboard.NewMappingHandler(domain, ip).WithAnalytics(analytics)
 		s.AddHandler(hMap)
 	}
 

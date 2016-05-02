@@ -14,14 +14,17 @@ type Handler interface {
 }
 
 type DummyHandler struct {
-	path string
+	path      string
+	analytics AnalyticsHandlerFunc
 }
 
 func NewDummyHandler(path string) DummyHandler {
-	return DummyHandler{path: path}
+	return DummyHandler{path: path, analytics: NoOpAnalytics}
 }
 
 func (h DummyHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+	defer h.analytics(AnalyticsMsg{Category: "DUMMY", Time: Now()})
+
 	fmt.Println(h.Path(), *r)
 }
 
@@ -29,13 +32,16 @@ func (h DummyHandler) Path() string {
 	return h.path
 }
 
-func NewDefaultHandler(nameservers []string) Handler {
-	return NewProxyHandler(".", nameservers)
+func NewDefaultHandler(nameservers []string) ProxyHandler {
+	h := NewProxyHandler(".", nameservers)
+	return h
 }
 
 type ProxyHandler struct {
 	path        string
 	nameservers []string
+	proxyType   string
+	analytics   AnalyticsHandlerFunc
 }
 
 func NewProxyHandler(path string, nameservers []string) ProxyHandler {
@@ -49,10 +55,17 @@ func NewProxyHandler(path string, nameservers []string) ProxyHandler {
 	return ProxyHandler{
 		path:        path,
 		nameservers: ns,
+		analytics:   NoOpAnalytics,
 	}
 }
 
+func (p ProxyHandler) WithAnalytics(h AnalyticsHandler) ProxyHandler {
+	p.analytics = h.Handle
+	return p
+}
+
 func (h ProxyHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+	defer h.analytics(AnalyticsMsg{Time: Now()})
 	c := &dns.Client{}
 	response, _, err := c.Exchange(r, h.nameservers[0])
 	if err == nil {
@@ -68,18 +81,26 @@ func (h ProxyHandler) Path() string {
 }
 
 type SinkholeHandler struct {
-	path     string
-	category string
+	path      string
+	category  string
+	analytics AnalyticsHandlerFunc
 }
 
 func NewSinkholeHandler(path string, category string) SinkholeHandler {
 	return SinkholeHandler{
-		path:     path,
-		category: category,
+		path:      path,
+		category:  category,
+		analytics: NoOpAnalytics,
 	}
 }
 
+func (p SinkholeHandler) WithAnalytics(h AnalyticsHandler) SinkholeHandler {
+	p.analytics = h.Handle
+	return p
+}
+
 func (h SinkholeHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+	defer h.analytics(AnalyticsMsg{Category: h.category, Time: Now()})
 	dns.HandleFailed(w, r)
 }
 
@@ -88,17 +109,24 @@ func (h SinkholeHandler) Path() string {
 }
 
 type MappingHandler struct {
-	path string
-	ip   net.IP
+	path      string
+	ip        net.IP
+	analytics AnalyticsHandlerFunc
 }
 
 func NewMappingHandler(path string, ip string) MappingHandler {
 	ip = strings.TrimSpace(ip)
 
 	return MappingHandler{
-		path: path,
-		ip:   net.ParseIP(ip),
+		path:      path,
+		ip:        net.ParseIP(ip),
+		analytics: NoOpAnalytics,
 	}
+}
+
+func (p MappingHandler) WithAnalytics(h AnalyticsHandler) MappingHandler {
+	p.analytics = h.Handle
+	return p
 }
 
 func (h MappingHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
