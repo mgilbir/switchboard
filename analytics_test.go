@@ -2,6 +2,11 @@ package switchboard
 
 import "testing"
 
+func TestImplementsInterfaces(t *testing.T) {
+	var _ AnalyticsHandler = NewAnalytics()
+	var _ AnalyticsAPI = NewAnalytics()
+}
+
 func TestAnalytics(t *testing.T) {
 	a := NewAnalytics()
 	if a.totalCount != 0 {

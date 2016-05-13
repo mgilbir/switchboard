@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/mgilbir/switchboard"
 	"github.com/spf13/viper"
@@ -15,6 +16,7 @@ const (
 	keyBlacklists         = "blacklist"
 	keyBindAddr           = "bind"
 	keyMapping            = "mapping"
+	keyApiServerAddr      = "apiBind"
 )
 
 var (
@@ -22,6 +24,7 @@ var (
 		// Use Google public DNS as default if none is provided
 		keyDefaultNameServers: []string{"8.8.8.8", "8.8.4.4"},
 		keyBindAddr:           ":53",
+		keyApiServerAddr:      ":8053",
 	}
 )
 
@@ -102,6 +105,15 @@ func main() {
 		hMap := switchboard.NewMappingHandler(domain, ip).WithAnalytics(analytics)
 		s.AddHandler(hMap)
 	}
+
+	// Start API server
+	api := switchboard.NewApi(analytics)
+	apiServer := http.Server{
+		Addr:    viper.GetString(keyApiServerAddr),
+		Handler: api,
+	}
+	//TODO: handle errors
+	go apiServer.ListenAndServe()
 
 	if err := s.ListenAndServe(); err != nil {
 		log.Fatal(err)
