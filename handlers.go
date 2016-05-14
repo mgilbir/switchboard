@@ -130,6 +130,8 @@ func (p MappingHandler) WithAnalytics(h AnalyticsHandler) MappingHandler {
 }
 
 func (h MappingHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+	defer h.analytics(AnalyticsMsg{Time: Now()})
+
 	//TODO: Do we want to do something different based on record type?
 	m := &dns.Msg{}
 	m.RecursionAvailable = true
