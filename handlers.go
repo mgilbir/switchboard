@@ -22,6 +22,11 @@ func NewDummyHandler(path string) DummyHandler {
 	return DummyHandler{path: path, analytics: NoOpAnalytics}
 }
 
+func (p DummyHandler) WithAnalytics(h AnalyticsHandler) DummyHandler {
+	p.analytics = h.Handle
+	return p
+}
+
 func (h DummyHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	defer h.analytics(AnalyticsMsg{Category: "DUMMY", Time: Now()})
 
