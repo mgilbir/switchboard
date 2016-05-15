@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/mgilbir/switchboard"
 	"github.com/spf13/viper"
@@ -65,6 +67,45 @@ func main() {
 	analytics := switchboard.NewAnalytics()
 
 	s := switchboard.New(viper.GetString(keyBindAddr))
+	errCh := make(chan error)
+
+	go func(errCh chan error) {
+		errCh <- s.ListenAndServe()
+	}(errCh)
+
+	// No handlers available yet.
+	// This ensures that no DNS requests go through until a safe system is setup
+
+	// Sinkhole handlers
+	var blacklists []blacklistConfig
+	err = viper.UnmarshalKey(keyBlacklists, &blacklists)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, blacklist := range blacklists {
+		// Proxy blacklist source domain
+		u, err := url.Parse(blacklist.Src)
+		if err != nil {
+			log.Fatalf("Wrong configuration. Blacklist URL: %s is invalid. %s", blacklist.Src, err)
+		}
+		// Host may contain the port, strip it if present
+		domain := strings.Split(u.Host, ":")[0]
+		hProxy := switchboard.NewProxyHandler(domain, viper.GetStringSlice(keyDefaultNameServers)).WithAnalytics(analytics)
+		s.AddHandler(hProxy)
+
+		// Retrieve blacklist
+		bl, err := switchboard.RetrieveBlacklist(blacklist.Src, blacklist.Category)
+		if err != nil {
+			log.Printf("Error retrieving blacklist: %s. %s. Proceeding without it\n", blacklist.Src, err)
+		}
+
+		for _, sinkhole := range bl.Domains() {
+			hSink := switchboard.NewSinkholeHandler(sinkhole, bl.Category()).WithAnalytics(analytics)
+			s.AddHandler(hSink)
+		}
+	}
+
 	// Prepare and add handlers
 	defaultHandler := switchboard.NewDefaultHandler(viper.GetStringSlice(keyDefaultNameServers))
 	defaultHandler = defaultHandler.WithAnalytics(analytics)
@@ -79,25 +120,6 @@ func main() {
 	for _, p := range proxies {
 		hProxy := switchboard.NewProxyHandler(p.Domain, p.NameServers).WithAnalytics(analytics)
 		s.AddHandler(hProxy)
-	}
-
-	// Sinkhole handlers
-	var blacklists []blacklistConfig
-	err = viper.UnmarshalKey(keyBlacklists, &blacklists)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, blacklist := range blacklists {
-		bl, err := switchboard.RetrieveBlacklist(blacklist.Src, blacklist.Category)
-		if err != nil {
-			log.Printf("Error retrieving blacklist: %s. %s. Proceeding without it\n", blacklist.Src, err)
-		}
-
-		for _, sinkhole := range bl.Domains() {
-			hSink := switchboard.NewSinkholeHandler(sinkhole, bl.Category()).WithAnalytics(analytics)
-			s.AddHandler(hSink)
-		}
 	}
 
 	// Mapping handlers
@@ -115,7 +137,8 @@ func main() {
 	//TODO: handle errors
 	go apiServer.ListenAndServe()
 
-	if err := s.ListenAndServe(); err != nil {
+	err = <-errCh
+	if err != nil {
 		log.Fatal(err)
 	}
 }
