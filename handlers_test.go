@@ -15,6 +15,8 @@ var (
 
 func TestDummyHandlerAnalytics(t *testing.T) {
 	probe := newTestAnalyticsProbe()
+	probe.AddTest(analyticsTestHasDomain)
+	probe.AddTest(analyticsTestHasNonEmptyQueryType)
 
 	h := NewDummyHandler("test.com").WithAnalytics(probe)
 	testQuery(h)
@@ -22,10 +24,16 @@ func TestDummyHandlerAnalytics(t *testing.T) {
 	if len(probe.m) != 1 {
 		t.Errorf("Expected one entry, got %d", len(probe.m))
 	}
+
+	if !probe.Test() {
+		t.Errorf("Expectations for analytics probe not fulfilled")
+	}
 }
 
 func TestProxyHandlerAnalytics(t *testing.T) {
 	probe := newTestAnalyticsProbe()
+	probe.AddTest(analyticsTestHasDomain)
+	probe.AddTest(analyticsTestHasNonEmptyQueryType)
 
 	server := newDnsTestServer(t, testHandlerRequestReceived)
 	defer server.Close()
@@ -40,10 +48,16 @@ func TestProxyHandlerAnalytics(t *testing.T) {
 	if len(probe.m) != 1 {
 		t.Errorf("Expected one entry, got %d", len(probe.m))
 	}
+
+	if !probe.Test() {
+		t.Errorf("Expectations for analytics probe not fulfilled")
+	}
 }
 
 func TestSinkholeHandlerAnalytics(t *testing.T) {
 	probe := newTestAnalyticsProbe()
+	probe.AddTest(analyticsTestHasDomain)
+	probe.AddTest(analyticsTestHasNonEmptyQueryType)
 
 	h := NewSinkholeHandler("test.com", "testCategory").WithAnalytics(probe)
 	testQuery(h)
@@ -51,16 +65,26 @@ func TestSinkholeHandlerAnalytics(t *testing.T) {
 	if len(probe.m) != 1 {
 		t.Errorf("Expected one entry, got %d", len(probe.m))
 	}
+
+	if !probe.Test() {
+		t.Errorf("Expectations for analytics probe not fulfilled")
+	}
 }
 
 func TestMappingHandlerAnalytics(t *testing.T) {
 	probe := newTestAnalyticsProbe()
+	probe.AddTest(analyticsTestHasDomain)
+	probe.AddTest(analyticsTestHasNonEmptyQueryType)
 
 	h := NewMappingHandler("test.com", "127.0.0.1").WithAnalytics(probe)
 	testQuery(h)
 
 	if len(probe.m) != 1 {
 		t.Errorf("Expected one entry, got %d", len(probe.m))
+	}
+
+	if !probe.Test() {
+		t.Errorf("Expectations for analytics probe not fulfilled")
 	}
 }
 
@@ -188,7 +212,8 @@ func testQuery(handler Handler) {
 }
 
 type testAnalyticsProbe struct {
-	m []AnalyticsMsg
+	m     []AnalyticsMsg
+	tests []func(AnalyticsMsg) bool
 }
 
 func newTestAnalyticsProbe() *testAnalyticsProbe {
@@ -197,4 +222,27 @@ func newTestAnalyticsProbe() *testAnalyticsProbe {
 
 func (p *testAnalyticsProbe) Handle(msg AnalyticsMsg) {
 	p.m = append(p.m, msg)
+}
+
+func (p *testAnalyticsProbe) AddTest(f func(AnalyticsMsg) bool) {
+	p.tests = append(p.tests, f)
+}
+
+func (p testAnalyticsProbe) Test() bool {
+	for _, m := range p.m {
+		for _, t := range p.tests {
+			if !t(m) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func analyticsTestHasDomain(msg AnalyticsMsg) bool {
+	return msg.Domain != ""
+}
+
+func analyticsTestHasNonEmptyQueryType(msg AnalyticsMsg) bool {
+	return msg.QueryType != ""
 }

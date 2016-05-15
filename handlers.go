@@ -28,7 +28,13 @@ func (p DummyHandler) WithAnalytics(h AnalyticsHandler) DummyHandler {
 }
 
 func (h DummyHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
-	defer h.analytics(AnalyticsMsg{Category: "DUMMY", Time: Now()})
+	qName, qType, err := extractQueryInfo(r)
+	if err != nil {
+		dns.HandleFailed(w, r)
+		return
+	}
+
+	defer h.analytics(AnalyticsMsg{Domain: qName, QueryType: qType, Category: "DUMMY", Time: Now()})
 
 	fmt.Println(h.Path(), *r)
 }
@@ -70,7 +76,13 @@ func (p ProxyHandler) WithAnalytics(h AnalyticsHandler) ProxyHandler {
 }
 
 func (h ProxyHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
-	defer h.analytics(AnalyticsMsg{Time: Now()})
+	qName, qType, err := extractQueryInfo(r)
+	if err != nil {
+		dns.HandleFailed(w, r)
+		return
+	}
+
+	defer h.analytics(AnalyticsMsg{Domain: qName, QueryType: qType, Time: Now()})
 	c := &dns.Client{}
 	response, _, err := c.Exchange(r, h.nameservers[0])
 	if err == nil {
@@ -105,7 +117,13 @@ func (p SinkholeHandler) WithAnalytics(h AnalyticsHandler) SinkholeHandler {
 }
 
 func (h SinkholeHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
-	defer h.analytics(AnalyticsMsg{Category: h.category, Time: Now()})
+	qName, qType, err := extractQueryInfo(r)
+	if err != nil {
+		dns.HandleFailed(w, r)
+		return
+	}
+
+	defer h.analytics(AnalyticsMsg{Domain: qName, QueryType: qType, Category: h.category, Time: Now()})
 	dns.HandleFailed(w, r)
 }
 
@@ -135,7 +153,13 @@ func (p MappingHandler) WithAnalytics(h AnalyticsHandler) MappingHandler {
 }
 
 func (h MappingHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
-	defer h.analytics(AnalyticsMsg{Time: Now()})
+	qName, qType, err := extractQueryInfo(r)
+	if err != nil {
+		dns.HandleFailed(w, r)
+		return
+	}
+
+	defer h.analytics(AnalyticsMsg{Domain: qName, QueryType: qType, Time: Now()})
 
 	//TODO: Do we want to do something different based on record type?
 	m := &dns.Msg{}
@@ -161,4 +185,13 @@ func (h MappingHandler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 func (h MappingHandler) Path() string {
 	return h.path
+}
+
+func extractQueryInfo(m *dns.Msg) (string, string, error) {
+	q := m.Question[0]
+	qType, ok := dns.TypeToString[q.Qtype]
+	if !ok {
+		return q.Name, "", fmt.Errorf("Unknown query type: %d", q.Qtype)
+	}
+	return q.Name, qType, nil
 }
