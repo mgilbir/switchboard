@@ -35,10 +35,10 @@ func TestLastEntries(t *testing.T) {
 		t.Fatalf("Expected an empty list")
 	}
 
-	m1 := AnalyticsMsg{Category: "TEST1", Time: Now()}
-	m2 := AnalyticsMsg{Category: "TEST2", Time: Now()}
-	m3 := AnalyticsMsg{Category: "TEST3", Time: Now()}
-	m4 := AnalyticsMsg{Category: "TEST4", Time: Now()}
+	m1 := AnalyticsMsg{Domain: "test.com", QueryType: "A", Category: "TEST1", Time: Now()}
+	m2 := AnalyticsMsg{Domain: "test.com", QueryType: "A", Category: "TEST2", Time: Now()}
+	m3 := AnalyticsMsg{Domain: "test.com", QueryType: "A", Category: "TEST3", Time: Now()}
+	m4 := AnalyticsMsg{Domain: "test.com", QueryType: "A", Category: "TEST4", Time: Now()}
 
 	l.Add(m1)
 	l.Add(m2)

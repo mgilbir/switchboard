@@ -30,8 +30,10 @@ type AnalyticsAPI interface {
 }
 
 type AnalyticsMsg struct {
-	Category string
-	Time     time.Time
+	Domain    string
+	QueryType string
+	Category  string
+	Time      time.Time
 }
 
 type EntryStats struct {
