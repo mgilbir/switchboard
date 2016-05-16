@@ -19,14 +19,15 @@ type AnalyticsHandler interface {
 }
 
 type CategoryStats struct {
+	Time          TimeBin
 	CategoryCount map[string]EntryStats
 	TotalCount    uint64
 }
 
 type AnalyticsAPI interface {
 	LastQueries() ([]AnalyticsMsg, error)
-	CategoryStatsAll() (CategoryStats, error)
-	CategoryStats(categories []string) (CategoryStats, error)
+	CategoryStatsAll() ([]CategoryStats, error)
+	CategoryStats(categories []string) ([]CategoryStats, error)
 }
 
 type AnalyticsMsg struct {
@@ -71,9 +72,19 @@ func (l *LastEntries) Add(m AnalyticsMsg) error {
 	return nil
 }
 
+type TimedAnalytics struct {
+	categoryCount map[string]EntryStats
+	totalCount    uint64
+}
+
+func NewTimedAnalytics() TimedAnalytics {
+	return TimedAnalytics{
+		categoryCount: make(map[string]EntryStats),
+	}
+}
+
 type Analytics struct {
-	categoryCount    map[string]EntryStats
-	totalCount       uint64
+	data             map[TimeBin]TimedAnalytics
 	lastTimeModified time.Time
 	lastN            *LastEntries
 	lock             sync.RWMutex
@@ -81,8 +92,8 @@ type Analytics struct {
 
 func NewAnalytics() *Analytics {
 	r := &Analytics{
-		categoryCount: make(map[string]EntryStats),
-		lastN:         NewLastEntries(50),
+		data:  make(map[TimeBin]TimedAnalytics),
+		lastN: NewLastEntries(50),
 	}
 
 	return r
@@ -94,39 +105,54 @@ func (a *Analytics) Handle(msg AnalyticsMsg) {
 
 	a.lastN.Add(msg)
 
-	a.totalCount++
+	bin := TimeToHourBin(msg.Time)
+	ta, ok := a.data[bin]
+	if !ok {
+		ta = NewTimedAnalytics()
+	}
+	ta.totalCount++
 	if msg.Category != "" {
-		m := a.categoryCount[msg.Category]
+		m := ta.categoryCount[msg.Category]
 		m.Count++
 		m.LastTimeModified = msg.Time
-		a.categoryCount[msg.Category] = m
+		ta.categoryCount[msg.Category] = m
 	}
 
 	if msg.Time.After(a.lastTimeModified) {
 		a.lastTimeModified = msg.Time
 	}
+	a.data[bin] = ta
 }
 
-func (a *Analytics) CategoryStatsAll() (CategoryStats, error) {
+func (a *Analytics) CategoryStatsAll() ([]CategoryStats, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
-	return CategoryStats{
-		//TODO: return a copy!
-		CategoryCount: a.categoryCount,
-		TotalCount:    a.totalCount,
-	}, nil
+
+	var r []CategoryStats
+
+	for tb, data := range a.data {
+		r = append(r, CategoryStats{
+			//TODO: return a copy!
+			Time:          tb,
+			CategoryCount: data.categoryCount,
+			TotalCount:    data.totalCount,
+		})
+	}
+
+	return r, nil
 }
 
-func (a *Analytics) CategoryStats(categories []string) (CategoryStats, error) {
+func (a *Analytics) CategoryStats(categories []string) ([]CategoryStats, error) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
-	return CategoryStats{}, fmt.Errorf("Not implemented")
+	return []CategoryStats{}, fmt.Errorf("Not implemented")
 }
 
 func (a *Analytics) Count() uint64 {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
-	return a.totalCount
+	bin := TimeToHourBin(Now())
+	return a.data[bin].totalCount
 }
 
 func (a *Analytics) LastQueries() ([]AnalyticsMsg, error) {

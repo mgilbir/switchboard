@@ -1,19 +1,27 @@
 package switchboard
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestImplementsInterfaces(t *testing.T) {
 	var _ AnalyticsHandler = NewAnalytics()
 	var _ AnalyticsAPI = NewAnalytics()
 }
 
+var fakeFixedTime = func() time.Time { return time.Unix(12121212, 0) }
+
 func TestAnalytics(t *testing.T) {
+	Now = fakeFixedTime
+
 	a := NewAnalytics()
-	if a.totalCount != 0 {
-		t.Fatalf("Expected an empty totalCount and got %d", a.totalCount)
+	bin := TimeToHourBin(Now())
+	if a.data[bin].totalCount != 0 {
+		t.Fatalf("Expected an empty totalCount and got %d", a.data[bin].totalCount)
 	}
-	if len(a.categoryCount) != 0 {
-		t.Fatalf("Expected an empty categoryCount and got %d", a.categoryCount)
+	if len(a.data[bin].categoryCount) != 0 {
+		t.Fatalf("Expected an empty categoryCount and got %d", a.data[bin].categoryCount)
 	}
 
 	a.Handle(AnalyticsMsg{Category: "TEST", Time: Now()})
@@ -23,8 +31,8 @@ func TestAnalytics(t *testing.T) {
 	if a.Count() != 2 {
 		t.Fatalf("Expected a totalCount of 2 and got %d", a.Count())
 	}
-	if len(a.categoryCount) != 1 {
-		t.Fatalf("Expected one categoryCount and got %d", a.categoryCount)
+	if len(a.data[bin].categoryCount) != 1 {
+		t.Fatalf("Expected one categoryCount and got %d", a.data[bin].categoryCount)
 	}
 }
 
