@@ -12,5 +12,9 @@
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Library/Logs/net.franchu.switchboard.log</string>
+	<key>StandardOutPath</key>
+	<string>/Library/Logs/net.franchu.switchboard.log</string>
 </dict>
 </plist>
