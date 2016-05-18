@@ -7,7 +7,8 @@ and allows to blacklist traffic.
 
 Put in /etc/switchboard/config.toml or ~/.config/switchboard/config.toml
 
-```DefaultNameServers = ["8.8.8.8", "8.8.4.4"]
+```
+DefaultNameServers = ["8.8.8.8", "8.8.4.4"]
 bind=":53"
 
 [mapping]
