@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/mgilbir/switchboard"
-	"github.com/spf13/viper"
+	"github.com/mgilbir/viper"
 )
 
 const (
